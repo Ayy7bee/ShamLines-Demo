@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Property | ShamLines</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- NAVBAR: the same on every page. Move the class="active" to the current page -->
+<header class="nav">
+  <a class="logo" href="index.html">⌂ ShamLines</a>
+  <button class="menu-btn" aria-label="Open menu">☰</button>
+  <div class="menu">
+    <nav class="links">
+      <a href="index.html" >Home</a>
+      <a href="contact.html#about">About</a>
+      <a href="properties.html" class="active">Properties</a>
+      <a href="services.html" >Services</a>
+      <a href="list-property.html" >List your properties</a>
+      <a href="contact.html" >Contact</a>
+    </nav>
+    <div class="auth"><button class="lang-btn" id="langBtn" type="button">English</button><a href="#">Log in</a><a class="btn" href="#">Sign up</a></div>
+  </div>
+</header>
+<main class="wrap">
+  <section style="padding-top:8px">
+    <!-- script.js fills this in from the address, e.g. property.html?id=3 -->
+    <div id="detail"></div>
+  </section>
+</main>
+<footer class="foot">
+  <div class="foot-in">
+    <div><a class="logo" href="index.html">⌂ ShamLines</a><p>A simple, honest way to rent, sell and manage property.</p></div>
+    <div><h4>Quick links</h4><a href="properties.html">Properties</a><a href="services.html">Services</a><a href="list-property.html">List your properties</a><a href="contact.html">Contact</a></div>
+    <div><h4>Contact</h4><a dir="ltr" href="tel:+963933331994">+963 933 331 994</a><a href="https://wa.me/963933331994">WhatsApp</a><span>📍 Damascus, Syria</span></div>
+  </div>
+  <div class="foot-copy">© 2026 ShamLines · Damascus, Syria</div>
+</footer>
+<script src="properties-data.js"></script>
+<script src="lang.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

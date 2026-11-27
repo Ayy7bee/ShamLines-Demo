@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex"> <!-- ask search engines not to list this page -->
+  <title>Add a property | Admin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="wrap">
+  <section>
+    <h2>Add a property</h2>
+    <p class="sub">Fill in the form, add photos, then copy the line and download the photos. This page does not publish anything by itself.</p>
+    <div class="two">
+      <form class="form" id="adminForm">
+        <label for="existing" class="small">New property, or add photos to one that is already on the site:</label>
+        <select id="existing"><option value="">New property</option></select>
+
+        <input type="text" id="title" placeholder="Property name (e.g. Sea View Villa)" required>
+        <input type="text" id="titleAr" placeholder="Arabic name (optional)">
+        <div class="row">
+          <input type="text" id="price" placeholder="Price (e.g. $350/mo)" required>
+          <select id="type"><option value="rent">For Rent</option><option value="sale">For Sale</option></select>
+        </div>
+
+        <p class="small">Property details. Anything you leave empty is simply not shown on the property's page.</p>
+        <input type="text" id="loc" placeholder="Location (e.g. Al-Mezzeh, Damascus)">
+        <input type="text" id="locAr" placeholder="Arabic location (optional)">
+        <div class="row">
+          <select id="kind"><option value="">Property type</option><option>Apartment</option><option>House</option><option>Villa</option><option>Office</option><option>Commercial</option><option>Factory</option><option>Land</option></select>
+          <select id="furnished"><option value="">Furnishing</option><option value="yes">Furnished</option><option value="partly">Partly furnished</option><option value="no">Unfurnished</option></select>
+        </div>
+        <div class="row">
+          <input type="number" id="area" min="0" step="any" placeholder="Total area (m²)">
+          <input type="number" id="inner" min="0" step="any" placeholder="Interior area (m²)">
+        </div>
+        <div class="row">
+          <input type="number" id="beds" min="0" placeholder="Bedrooms">
+          <input type="number" id="baths" min="0" placeholder="Bathrooms">
+        </div>
+        <div class="row">
+          <input type="text" id="floor" placeholder="Floor (e.g. 5 or Ground)">
+          <select id="status"><option value="">Status</option><option value="available">Available</option><option value="reserved">Reserved</option><option value="rented">Rented</option><option value="sold">Sold</option></select>
+        </div>
+        <p class="small">Map (optional). Paste a Google Maps link, GPS coordinates (like 33.5138, 36.2765) or just an address. In Google Maps you can right-click the exact spot and click the numbers at the top of the menu to copy its coordinates. Short links that start with maps.app.goo.gl cannot be read, so open them first and copy the long link from the address bar.</p>
+        <input type="text" id="map" placeholder="Google Maps link, coordinates or address" dir="ltr">
+        <p class="small" id="mapMsg" role="status"></p>
+        <div class="map-frame" id="mapPrev" hidden><iframe title="Map preview" loading="lazy"></iframe></div>
+        <textarea id="desc" placeholder="Description (shown on the property's page)"></textarea>
+        <textarea id="descAr" placeholder="Arabic description (optional)"></textarea>
+
+        <label class="drop" id="drop">
+          <input type="file" id="files" accept="image/*" multiple>
+          <b>Add photos</b>
+          <span class="small">Click here or drop pictures. They are resized automatically. The first photo is the cover.</span>
+        </label>
+        <div class="thumbs" id="thumbs"></div>
+        <p class="small" id="msg" role="status"></p>
+
+        <button class="btn" type="submit">Make the line</button>
+        <label for="out" class="small">Copy this line:</label>
+        <textarea id="out" readonly placeholder="Your line appears here"></textarea>
+        <button class="btn light" type="button" id="copy" style="border:1px solid #d9cfc6">Copy</button>
+
+        <div class="row">
+          <button class="btn light" type="button" id="zip" style="border:1px solid #d9cfc6">Download photos (.zip)</button>
+          <button class="btn light" type="button" id="each" style="border:1px solid #d9cfc6">Download one by one</button>
+        </div>
+      </form>
+
+      <div>
+        <h3>Preview</h3>
+        <div class="card" id="preview" style="width:260px; margin-top:14px; background-image:linear-gradient(160deg,#e3b98a,#7b5a46)">
+          <span class="price" id="pPrice">€0</span><span class="badge" id="pType">For Rent</span><span class="place" id="pTitle">📍 Name</span>
+        </div>
+        <ol class="small" style="margin:24px 0 0 18px; display:grid; gap:8px">
+          <li>Click <b>Make the line</b>, then <b>Download photos</b>. If you chose the .zip, unzip it.</li>
+          <li>Upload the photo files to the <b>images</b> folder in your GitHub repo.</li>
+          <li id="stepLine">Open <b>properties-data.js</b> on GitHub, click the pencil icon, paste the line above the closing <b>];</b> and commit.</li>
+          <li>Wait about a minute, then refresh the site.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="properties-data.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const names = { rent: "For Rent", sale: "For Sale" };
+  const DEFAULT_BG = "linear-gradient(160deg,#e3b98a,#7b5a46)";
+  const nextId = Math.max(0, ...properties.map(p => p.id)) + 1;   // next free id = highest existing id + 1
+  const NEW_STEP = $("stepLine").innerHTML;
+
+  // form box id -> name of the field in properties-data.js
+  const FIELDS = { title: "title", titleAr: "ar", price: "price", loc: "loc", locAr: "locAr", kind: "kind", furnished: "furnished", status: "status",
+                   area: "area", inner: "inner", beds: "beds", baths: "baths", floor: "floor", map: "map", desc: "desc", descAr: "descAr" };
+  let editing = null;   // the existing property being edited, or null for a new one
+  let items = [];       // photos in order: { src, blob, token } for new ones, { src, path } for ones already on the site
+  const currentId = () => editing ? editing.id : nextId;
+  const pathOf = it => it.blob ? `images/p${currentId()}-${it.token}.jpg` : it.path;
+
+  // ----- Pick a property to edit -----
+  properties.forEach(p => $("existing").add(new Option(`#${p.id} · ${p.title}`, p.id)));
+  $("existing").addEventListener("change", () => {
+    editing = properties.find(p => p.id === Number($("existing").value)) || null;
+    items = items.filter(it => it.blob);                       // keep newly added photos, swap the old list
+    if (editing) {
+      Object.entries(FIELDS).forEach(([id, key]) => $(id).value = editing[key] ?? "");
+      $("type").value = editing.type;
+      items = (editing.images || []).map(path => ({ src: path, path })).concat(items);
+      $("stepLine").innerHTML = `Open <b>properties-data.js</b> on GitHub, click the pencil icon, find the line that starts with <b>{ id: ${editing.id},</b> and replace that whole line with the new one. Then commit.`;
+    } else {
+      Object.keys(FIELDS).forEach(id => $(id).value = ""); $("type").value = "rent";
+      $("stepLine").innerHTML = NEW_STEP;
+    }
+    $("out").value = "";
+    render();
+    updateMap();
+  });
+
+  // ----- Map: accept a Google Maps link, coordinates or an address, and show a live preview -----
+  // Returns "" (empty), null (link we cannot read) or the text the site will use to find the place.
+  function parseMap(raw) {
+    const v = raw.trim();
+    if (!v) return "";
+    if (!/^https?:\/\//i.test(v)) return v;                                   // coordinates or an address: use as typed
+    if (/(maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(v)) return null;           // short links hide the location
+    const dec = decodeURIComponent;
+    let m = v.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/) || v.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || v.match(/[?&](?:q|query|ll|destination)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+    if (m) return `${m[1]},${m[2]}`;
+    m = v.match(/[?&](?:q|query|destination)=([^&]+)/) || v.match(/\/place\/([^/@?]+)/);
+    if (m) { try { return dec(m[1].replace(/\+/g, " ")); } catch (e) { return m[1]; } }
+    return null;
+  }
+  let mapTimer;
+  function updateMap() {
+    const frame = $("mapPrev");
+    const q = parseMap($("map").value);
+    if (q === null) {
+      $("mapMsg").textContent = "This link cannot be read. Open it in the browser and copy the long link from the address bar, or paste the coordinates instead.";
+      frame.hidden = true; return;
+    }
+    $("mapMsg").textContent = q ? `The site will show the map for: ${q}` : "";
+    frame.hidden = !q;
+    if (q) frame.querySelector("iframe").src = `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=15&output=embed`;
+  }
+  $("map").addEventListener("input", () => { clearTimeout(mapTimer); mapTimer = setTimeout(updateMap, 600); });
+
+  // ----- Photos: resize in the browser so the site stays fast -----
+  async function shrink(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = url; });
+      const k = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));   // longest side max 1400px
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      return await new Promise((ok, bad) => c.toBlob(b => b ? ok(b) : bad(new Error("toBlob")), "image/jpeg", 0.82));
+    } finally { URL.revokeObjectURL(url); }
+  }
+
+  async function addFiles(list) {
+    const files = [...list].filter(f => f.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|avif)$/i.test(f.name));
+    if (!files.length) return;
+    let failed = 0;
+    $("msg").textContent = "Preparing photos...";
+    for (const f of files) {
+      try {
+        const blob = await shrink(f);
+        items.push({ blob, src: URL.createObjectURL(blob), token: Math.random().toString(36).slice(2, 7) });
+      } catch (e) { failed++; }
+    }
+    $("msg").textContent = failed ? `${failed} photo(s) could not be read. iPhone HEIC photos may need to be saved as JPG first.` : "";
+    render();
+  }
+  $("files").addEventListener("change", e => { addFiles(e.target.files).then(() => { $("files").value = ""; }); });
+  ["dragenter", "dragover"].forEach(ev => $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.add("over"); }));
+  ["dragleave", "drop"].forEach(ev => $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.remove("over"); }));
+  $("drop").addEventListener("drop", e => addFiles(e.dataTransfer.files));
+
+  // Move or remove a photo
+  $("thumbs").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    const i = Number(b.dataset.i);
+    if (b.dataset.act === "del") {
+      const [gone] = items.splice(i, 1);
+      if (gone.blob) URL.revokeObjectURL(gone.src);
+    } else {
+      const j = b.dataset.act === "left" ? i - 1 : i + 1;
+      if (j >= 0 && j < items.length) [items[i], items[j]] = [items[j], items[i]];
+    }
+    render();
+  });
+
+  function render() {
+    $("thumbs").innerHTML = items.map((it, i) => `
+      <div class="thumb"><img src="${it.src}" alt="">
+        ${i === 0 ? '<span class="tag">Cover</span>' : ""}
+        <div class="tools">
+          <button type="button" data-act="left" data-i="${i}" aria-label="Move earlier">‹</button>
+          <button type="button" data-act="del" data-i="${i}" aria-label="Remove photo">✕</button>
+          <button type="button" data-act="right" data-i="${i}" aria-label="Move later">›</button>
+        </div>
+      </div>`).join("");
+    const fresh = items.filter(it => it.blob).length;
+    $("zip").disabled = $("each").disabled = fresh === 0;
+    updatePreview();
+  }
+
+  function updatePreview() {
+    $("preview").style.backgroundImage = items.length ? `url('${items[0].src}')` : DEFAULT_BG;
+    $("pPrice").textContent = $("price").value || "€0";
+    $("pType").textContent = names[$("type").value];
+    $("pTitle").textContent = "📍 " + ($("title").value || "Name");
+  }
+  ["title", "price", "type"].forEach(id => $(id).addEventListener("input", updatePreview));
+
+  // ----- Make the line to paste into properties-data.js -----
+  $("adminForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const J = JSON.stringify;   // adds the quotes and escapes special characters for us
+    const bg = (editing && editing.bg) || DEFAULT_BG;
+    const imgs = items.map(pathOf);
+    const val = id => $(id).value.trim();
+    const mapVal = parseMap($("map").value);
+    if (mapVal === null) { updateMap(); $("map").focus(); return; }          // unreadable link: stop and explain
+    const parts = [`id: ${currentId()}`, `title: ${J($("title").value)}`];
+    if (val("titleAr")) parts.push(`ar: ${J(val("titleAr"))}`);
+    parts.push(`price: ${J($("price").value)}`, `type: "${$("type").value}"`, `bg: ${J(bg)}`);
+    ["loc", "locAr", "kind"].forEach(id => { if (val(id)) parts.push(`${id}: ${J(val(id))}`); });
+    ["area", "inner", "beds", "baths"].forEach(id => { if (val(id) !== "") parts.push(`${id}: ${Number(val(id))}`); });
+    ["floor", "furnished", "status", "desc", "descAr"].forEach(id => { if (val(id)) parts.push(`${id}: ${J(val(id))}`); });
+    if (mapVal) parts.push(`map: ${J(mapVal)}`);
+    if (imgs.length) parts.push(`images: ${J(imgs)}`);
+    $("out").value = `  { ${parts.join(", ")} },`;
+    updatePreview();
+  });
+  $("copy").addEventListener("click", () => { $("out").select(); try { navigator.clipboard.writeText($("out").value); } catch (e) { document.execCommand("copy"); } });
+
+  // ----- Download the new photos with the exact file names used in the line -----
+  const newPhotos = () => items.filter(it => it.blob).map(it => ({ name: pathOf(it).replace("images/", ""), blob: it.blob }));
+  function save(blob, name) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  }
+  $("zip").addEventListener("click", async () => save(await makeZip(newPhotos()), `photos-property-${currentId()}.zip`));
+  $("each").addEventListener("click", () => newPhotos().forEach((f, i) => setTimeout(() => save(f.blob, f.name), i * 400)));
+
+  // ZIP-START: a tiny zip writer (no library needed; JPEGs are already compressed, so files are stored as-is)
+  const crcTable = (() => { const t = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc32 = u8 => { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = crcTable[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  async function makeZip(files) {
+    const enc = new TextEncoder(), parts = [], central = [];
+    let offset = 0;
+    for (const f of files) {
+      const data = new Uint8Array(await f.blob.arrayBuffer());
+      const name = enc.encode(f.name), crc = crc32(data);
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(12, 0x21, true);
+      lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true);
+      parts.push(lh.buffer, name, data);
+      const ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(14, 0x21, true);
+      ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true);
+      ch.setUint32(42, offset, true);
+      central.push(ch.buffer, name);
+      offset += 30 + name.length + data.length;
+    }
+    const cdSize = central.reduce((s, b) => s + b.byteLength, 0);
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+    end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+    return new Blob([...parts, ...central, end.buffer], { type: "application/zip" });
+  }
+  // ZIP-END
+
+  render();
+</script>
+</body>
+</html>
